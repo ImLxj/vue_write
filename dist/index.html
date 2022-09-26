@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app" style="background-color: green;">
+      {{name}} hello world {{age}}
+      <span>vue</span>
+    </div>
+    <script src="./vue.js"></script>
+    <script>
+      const vm = new Vue({
+        data() {
+          return {
+            name: "张三",
+            age: 18,
+            sex: "男",
+            address: {
+              city: "山东济宁",
+              school: "烟台科技学院",
+            },
+            hobby: ["1", "2", "3", { a: 1 }],
+          };
+        },
+        el: "#app",
+      });
+
+      setTimeout(() => {
+        vm.name = '王五'
+        vm.age = 200
+        vm._update(vm._render())
+      }, 1000)
+    </script>
+  </body>
+</html>
