@@ -7,8 +7,8 @@
     <title>Document</title>
   </head>
   <body>
-    <div id="app" style="background-color: green;">
-      {{name}} hello world {{age}}
+    <div id="app" style="background-color: green">
+      {{name}} hello world {{age}} {{age}}
       <span>vue</span>
     </div>
     <script src="./vue.js"></script>
@@ -29,11 +29,10 @@
         el: "#app",
       });
 
-      setTimeout(() => {
-        vm.name = '王五'
-        vm.age = 200
-        vm._update(vm._render())
-      }, 1000)
+      vm.name = "李四";
+      vm.$nextTick(() => {
+        console.log(document.getElementById("app").innerText);
+      });
     </script>
   </body>
 </html>

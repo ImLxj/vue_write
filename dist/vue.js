@@ -341,6 +341,164 @@
     return render;
   }
 
+  var id$1 = 0;
+
+  var Dep = /*#__PURE__*/function () {
+    function Dep() {
+      _classCallCheck(this, Dep);
+
+      this.id = id$1++;
+      this.subs = []; // 用于收集watcher
+    }
+
+    _createClass(Dep, [{
+      key: "depend",
+      value: function depend() {
+        /**q
+         * 这里我们希望有重复的watcher 如果一个属性调用两次get方法就会push进去两个相同的watcher 这样只单向的关系
+         * 我们想让 dep 和 watcher 变成双向关系
+         */
+        // this.subs.push(Dep.target)
+        Dep.target.appDep(this);
+      }
+    }, {
+      key: "addSub",
+      value: function addSub(watcher) {
+        this.subs.push(watcher);
+      }
+    }, {
+      key: "notify",
+      value: function notify() {
+        this.subs.forEach(function (watcher) {
+          return watcher.update();
+        });
+      }
+      /**
+       * 一个组件上有多个 属性 一个属性有一个dep 一个dep 对应多个watcher
+       * 一个组件只有一个watcher 但是组件上有多个属性也就是有多个dep
+       * dep 和 watcher 是多对多的关系
+       */
+
+    }]);
+
+    return Dep;
+  }();
+
+  Dep.target = null; // 观察到watcher用来收集watcher
+
+  var id = 0; // 唯一标识
+  // 每个属性都有个一个dep(被观察者) watcher就是观察者(属性变化了 就会通知观察者来更新) => 观察者模式
+
+  var Watcher = /*#__PURE__*/function () {
+    // 不同的组件有不同的watcher
+    function Watcher(vm, fn, options) {
+      _classCallCheck(this, Watcher);
+
+      this.id = id++;
+      this.getter = fn; // getter意味着调用这个函数可以发生取值操作。
+
+      this.renderWatcher = options;
+      this.depsId = new Set(); // dep的id 如果有重复的则进行去重
+
+      this.deps = []; // 用于watcher 收集dep
+
+      this.get();
+    }
+
+    _createClass(Watcher, [{
+      key: "appDep",
+      value: function appDep(dep) {
+        var id = dep.id; // 判断当前set对象里面有没有dep的id 如果没有 就将属性的dep放到watcher里面
+
+        if (!this.depsId.has(id)) {
+          this.deps.push(dep);
+          this.depsId.add(id); // 将id存入到set对象当中
+
+          dep.addSub(this); // 此时watcher已经记住了dep 就只需要dep在记住watcher就可以了
+        }
+      }
+    }, {
+      key: "get",
+      value: function get() {
+        Dep.target = this; // 将当前watcher挂载到Dep类身上
+        // debugger
+
+        this.getter(); // 回去vm身上取值
+
+        Dep.target = null; // 在vm身上取完值之后在 将watcher收集器制空
+      }
+    }, {
+      key: "update",
+      value: function update() {
+        queueWatcher(this); // 把当前的watcher暂存起来 我们想要多次的更新操作变成一次
+        // this.get() // 重新渲染
+      }
+    }, {
+      key: "run",
+      value: function run() {
+        this.get();
+      }
+    }]);
+
+    return Watcher;
+  }();
+  var queue = []; // 存储watcher的队列
+
+  var has = {}; // 进行去重
+
+  var padding = false; // 做防抖
+
+  function flushSchedulerQueue() {
+    var flushQueue = queue.slice(0);
+    queue = [];
+    has = {};
+    padding = false;
+    flushQueue.forEach(function (q) {
+      return q.run();
+    });
+  }
+
+  function queueWatcher(watcher) {
+    var id = watcher.id;
+
+    if (!has[id]) {
+      queue.push(watcher);
+      has[id] = id; // 不管我们的queueWatcher执行多少次，最终只完成一次页面刷新操作， 这样做可能会有一个问题 就是
+      // 如果用户想获取新的值 但是时同步的任务 这样用户获取的就是旧的值 如果使用promise的话 他就会比定时器的优先级高
+      // 所以我们想着就将setTimeout规整一下 新建一个方法来维护它
+
+      if (!padding) {
+        nextTick(flushSchedulerQueue);
+        padding = true;
+      }
+    }
+  }
+
+  var callback = [];
+  var waiting = false; // 是否等待
+
+  function flushCallback() {
+    var cbs = callback.slice(0);
+    waiting = false;
+    callback = [];
+    cbs.forEach(function (c) {
+      return c();
+    });
+  } // nextTick 没有直接使用某个api 而是采用优雅降级的方式
+  // 内部采用的是 promise(ie不兼容)、MutationObserver(h5的api)、setImmediate（ie专属的）、settimeout
+
+
+  function nextTick(cb) {
+    callback.push(cb); // 维护nextTick的callback方法
+
+    if (!waiting) {
+      setTimeout(function () {
+        flushCallback(); // 最后一起进行刷新
+      }, 0);
+      waiting = true;
+    }
+  }
+
   // _c
   function createElementVNode(vm, tag, data) {
     if (data == null) {
@@ -470,9 +628,14 @@
     // 这里的el是通过querySelector 处理过的。
     vm.$el = el; // 1. 调用render函数产生虚拟节点  虚拟DOM
 
-    vm._update(vm._render()); // 2. 根据虚拟DOM 生成真实DOM
-    // 3. 将生成的真实DOM插入到el当中
+    var updateComponent = function updateComponent() {
+      vm._update(vm._render());
+    };
 
+    var watcher = new Watcher(vm, updateComponent, true); // true 用于标识这是一个渲染watcher
+
+    console.log(watcher); // 2. 根据虚拟DOM 生成真实DOM
+    // 3. 将生成的真实DOM插入到el当中
   }
 
   // 获取到数组原型上的方法
@@ -558,8 +721,15 @@
   function defineReactive(target, key, value) {
     observe(value); // 如果还有对象嵌套对象 则进行递归
 
+    var dep = new Dep(); // 为每一个属性都增加一个dep收集器
+
     Object.defineProperty(target, key, {
       get: function get() {
+        // 如果dep.target存在 就将当前实例上的watcher放到dep身上
+        if (Dep.target) {
+          dep.depend(); // 这个就是让收集器记住当前watcher
+        }
+
         return value;
       },
       set: function set(newValue) {
@@ -567,6 +737,7 @@
         observe(newValue); // 如果传递过来的是一个对象，则再次代理
 
         value = newValue;
+        dep.notify(); // 通知更新
       }
     });
   }
@@ -680,6 +851,7 @@
     this._init(options);
   }
 
+  Vue.prototype.$nextTick = nextTick;
   initMixin(Vue);
   initLifecycle(Vue);
 

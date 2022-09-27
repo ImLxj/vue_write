@@ -1,3 +1,4 @@
+import Watcher from "./observe/watcher";
 import { createElementVNode, createTextVNode } from "./vdom";
 
 function createElement(vnode) {
@@ -81,7 +82,11 @@ export function mountComponent(vm, el) {
   // 这里的el是通过querySelector 处理过的。
   vm.$el = el;
   // 1. 调用render函数产生虚拟节点  虚拟DOM
-  vm._update(vm._render());
+  const updateComponent = () => {
+    vm._update(vm._render());
+  }
+  const watcher = new Watcher(vm, updateComponent, true) // true 用于标识这是一个渲染watcher
+  console.log(watcher);
   // 2. 根据虚拟DOM 生成真实DOM
   // 3. 将生成的真实DOM插入到el当中
 }
